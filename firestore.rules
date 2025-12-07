@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    match /stickerPacks/{packId} {
+      allow read: if true;
+      
+      allow create: if request.auth != null
+                    && request.resource.data.name is string
+                    && request.resource.data.creatorId is string
+                    && request.resource.data.creatorId == request.auth.uid
+                    && request.resource.data.stickerUrls is list
+                    && request.resource.data.downloads is number
+                    && request.resource.data.downloads == 0;
+      
+      allow update: if request.auth != null
+                    && request.auth.uid == resource.data.creatorId
+                    && request.resource.data.creatorId == resource.data.creatorId;
+      
+      allow delete: if request.auth != null
+                    && request.auth.uid == resource.data.creatorId;
+    }
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
