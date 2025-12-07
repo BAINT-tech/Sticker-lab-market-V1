@@ -1,0 +1,6 @@
+lib/
+*.js
+*.js.map
+*.tsbuildinfo
+node_modules/
+firebase-debug.log
