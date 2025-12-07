@@ -1,0 +1,15 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "stickerPacks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "downloads",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
