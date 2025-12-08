@@ -6,6 +6,7 @@ import * as busboy from 'busboy';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
+import { v2 as cloudinary } from 'cloudinary';
 
 admin.initializeApp();
 
@@ -14,7 +15,13 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 
 const db = admin.firestore();
-const storage = admin.storage().bucket();
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: 'ds2ecbamt',
+  api_key: '789532531674775',
+  api_secret: 'dN6Dt16Opil8NV4hQOKaPf74pzQ'
+});
 
 interface StickerPack {
   id?: string;
@@ -25,6 +32,7 @@ interface StickerPack {
   createdAt: admin.firestore.Timestamp;
 }
 
+// CREATE STICKER PACK
 app.post('/createStickerPack', async (req, res) => {
   try {
     const { name, creatorId } = req.body;
@@ -57,6 +65,7 @@ app.post('/createStickerPack', async (req, res) => {
   }
 });
 
+// UPLOAD STICKER TO CLOUDINARY
 app.post('/uploadSticker', async (req, res) => {
   try {
     const bb = busboy({ headers: req.headers });
@@ -68,7 +77,6 @@ app.post('/uploadSticker', async (req, res) => {
       const { filename } = info;
       const filepath = path.join(tmpdir, filename);
       uploads[fieldname] = filepath;
-      
       file.pipe(fs.createWriteStream(filepath));
     });
 
@@ -96,28 +104,21 @@ app.post('/uploadSticker', async (req, res) => {
           return res.status(404).json({ error: 'Sticker pack not found' });
         }
 
-        const timestamp = Date.now();
-        const filename = path.basename(fileToUpload);
-        const storagePath = `stickers/${stickerPackId}/${timestamp}_${filename}`;
-        
-        await storage.upload(fileToUpload, {
-          destination: storagePath,
-          metadata: {
-            contentType: 'image/png',
-            metadata: {
-              stickerPackId
-            }
-          }
+        // Upload to Cloudinary
+        const uploadResult = await cloudinary.uploader.upload(fileToUpload, {
+          folder: `stickers/${stickerPackId}`,
+          resource_type: 'image',
+          public_id: `sticker_${Date.now()}`
         });
 
-        const file = storage.file(storagePath);
-        await file.makePublic();
-        const publicUrl = `https://storage.googleapis.com/${storage.name}/${storagePath}`;
+        const publicUrl = uploadResult.secure_url;
 
+        // Update Firestore
         await packRef.update({
           stickerUrls: admin.firestore.FieldValue.arrayUnion(publicUrl)
         });
 
+        // Cleanup temp file
         fs.unlinkSync(fileToUpload);
 
         res.status(200).json({
@@ -140,6 +141,7 @@ app.post('/uploadSticker', async (req, res) => {
   }
 });
 
+// INCREMENT DOWNLOAD COUNTER
 app.post('/incrementDownload', async (req, res) => {
   try {
     const { stickerPackId } = req.body;
@@ -179,6 +181,7 @@ app.post('/incrementDownload', async (req, res) => {
   }
 });
 
+// GET TOP STICKERS (TRENDING CHART)
 app.get('/topStickers', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 20;
@@ -205,6 +208,7 @@ app.get('/topStickers', async (req, res) => {
   }
 });
 
+// HEALTH CHECK
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
